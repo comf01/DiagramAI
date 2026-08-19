@@ -7,13 +7,14 @@ interface MiniMapProps {
   diagram: Diagram;
   tf: { x: number; y: number; k: number };
   view: { w: number; h: number };
+  matchIds?: Set<string> | null;
   onJump: (wx: number, wy: number) => void;
 }
 
 const W = 164;
 const H = 108;
 
-export function MiniMap({ diagram, tf, view, onJump }: MiniMapProps) {
+export function MiniMap({ diagram, tf, view, matchIds, onJump }: MiniMapProps) {
   const b = useMemo(() => boundsOf(diagram.nodes, 120), [diagram]);
   if (!b || view.w === 0) return null;
 
@@ -72,6 +73,7 @@ export function MiniMap({ diagram, tf, view, onJump }: MiniMapProps) {
             cy={n.y * s + oy}
             r={3}
             fill={COLORS[n.color].fill}
+            fillOpacity={matchIds && !matchIds.has(n.id) ? 0.25 : 1}
           />
         ))}
         <rect

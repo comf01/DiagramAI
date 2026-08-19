@@ -103,11 +103,19 @@ export function boundsOf(nodes: DiagramNode[], pad = 80): Bounds | null {
   return { minX: minX - pad, minY: minY - pad, w: maxX - minX + pad * 2, h: maxY - minY + pad * 2 };
 }
 
-/** Radial tidy layout: BFS tree from the most-connected node, rings by depth. */
-export function radialTidy(diagram: Diagram): Diagram {
-  const { nodes, edges } = diagram;
-  if (nodes.length < 2) return diagram;
+export interface LayoutTree {
+  root: DiagramNode;
+  /** BFS spanning tree: node id → child ids (unreached nodes absent). */
+  children: Map<string, string[]>;
+  /** Leaf count per subtree, used to allocate space proportionally. */
+  leaves: (id: string) => number;
+  /** Nodes not reachable from the root. */
+  orphans: DiagramNode[];
+}
 
+/** BFS spanning tree from the most-connected node — shared by all layouts. */
+export function buildLayoutTree(diagram: Diagram): LayoutTree {
+  const { nodes, edges } = diagram;
   const adj = new Map<string, string[]>();
   const deg = new Map<string, number>();
   nodes.forEach((n) => adj.set(n.id, []));
@@ -143,6 +151,16 @@ export function radialTidy(diagram: Diagram): Diagram {
     leafCache.set(u, v);
     return v;
   };
+
+  return { root, children, leaves, orphans: nodes.filter((n) => !seen.has(n.id)) };
+}
+
+/** Radial tidy layout: BFS tree from the most-connected node, rings by depth. */
+export function radialTidy(diagram: Diagram): Diagram {
+  const { nodes } = diagram;
+  if (nodes.length < 2) return diagram;
+
+  const { root, children, leaves } = buildLayoutTree(diagram);
 
   const pos = new Map<string, { x: number; y: number }>();
   const place = (u: string, a0: number, a1: number, depth: number) => {
