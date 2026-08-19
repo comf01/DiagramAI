@@ -1,8 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ColorKey, Diagram, Selection, ToastKind, ToastMsg, Tool } from "./types";
 import { useDiagram, uid } from "./useDiagram";
 import { makeTemplate } from "./templates";
-import { radialTidy, buildSvgExport } from "./geometry";
+import { radialTidy, buildSvgExport, boundsOf } from "./geometry";
+import { LAYOUT_FNS, type LayoutKind } from "./layouts";
+import { parseDiagramFile } from "./lib/importDiagram";
+import { svgToPngBlob } from "./lib/exportPng";
+import type { Extension } from "./ai/schema";
+import { AiPanel, type AiApplyMode } from "./components/AiPanel";
 import { COLOR_KEYS } from "./palette";
 import { TopBar } from "./components/TopBar";
 import { TemplatePanel } from "./components/TemplatePanel";
@@ -51,6 +56,8 @@ export default function App() {
 
   const [tool, setTool] = useState<Tool>("select");
   const [libraryOpen, setLibraryOpen] = useState(true);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const [toasts, setToasts] = useState<ToastMsg[]>([]);
   const [saveState, setSaveState] = useState<"saving" | "saved">("saved");
   const [flashKey, setFlashKey] = useState(1);
@@ -170,10 +177,15 @@ export default function App() {
     });
   };
 
-  const patchEdge = (id: string, patch: Partial<{ arrow: boolean }>) => {
+  const patchEdge = (id: string, patch: Partial<{ arrow: boolean; label: string }>) => {
     store.commit({
       ...diagram,
-      edges: diagram.edges.map((e) => (e.id === id ? { ...e, ...patch } : e)),
+      edges: diagram.edges.map((e) => {
+        if (e.id !== id) return e;
+        const next = { ...e, ...patch };
+        if (!next.label) delete next.label;
+        return next;
+      }),
     });
   };
 
@@ -224,29 +236,94 @@ export default function App() {
     window.setTimeout(() => fitRef.current?.fitView(), 90);
   };
 
-  const tidyBoard = () => {
+  /* ---------- AI generation ---------- */
+
+  const applyAiDiagram = (d: Diagram, mode: AiApplyMode) => {
+    if (mode === "replace" || diagram.nodes.length === 0) {
+      store.commit(d);
+    } else {
+      const existing = boundsOf(diagram.nodes, 0);
+      const incoming = boundsOf(d.nodes, 0);
+      const dx = existing && incoming ? existing.minX + existing.w + 250 - incoming.minX : 0;
+      const dy = existing && incoming ? existing.minY - incoming.minY : 0;
+      store.commit({
+        ...diagram,
+        nodes: [...diagram.nodes, ...d.nodes.map((n) => ({ ...n, x: n.x + dx, y: n.y + dy }))],
+        edges: [...diagram.edges, ...d.edges],
+      });
+    }
+    store.setSelection(null);
+    setFlashKey((k) => k + 1);
+    toast("Diagram generated", "ok");
+    window.setTimeout(() => fitRef.current?.fitView(), 90);
+  };
+
+  const applyAiExtension = (_nodeId: string, ext: Extension) => {
+    store.commit(
+      radialTidy({
+        ...diagram,
+        nodes: [...diagram.nodes, ...ext.nodes],
+        edges: [...diagram.edges, ...ext.edges],
+      }),
+    );
+    setFlashKey((k) => k + 1);
+    toast(`Added ${ext.nodes.length} nodes`, "ok");
+    window.setTimeout(() => fitRef.current?.fitView(), 90);
+  };
+
+  const tidyBoard = (kind: LayoutKind) => {
     if (diagram.nodes.length < 2) {
       toast("Nothing to arrange yet", "warn");
       return;
     }
-    store.commit(radialTidy(diagram));
+    store.commit(LAYOUT_FNS[kind](diagram));
     setFlashKey((k) => k + 1);
-    toast("Auto-arranged as a radial tree", "ok");
+    toast(`Auto-arranged as ${kind === "radial" ? "a radial tree" : kind === "tree" ? "a layered tree" : "a grid"}`, "ok");
     window.setTimeout(() => fitRef.current?.fitView(), 90);
   };
 
-  const exportDiagram = (kind: "svg" | "json") => {
+  const exportDiagram = (kind: "svg" | "json" | "png") => {
     const safe = (diagram.title || "driftboard").replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-").toLowerCase() || "driftboard";
     if (kind === "svg") {
       const blob = new Blob([buildSvgExport(diagram)], { type: "image/svg+xml" });
       download(blob, `${safe}.svg`);
+      toast("SVG downloaded", "ok");
+    } else if (kind === "png") {
+      svgToPngBlob(buildSvgExport(diagram))
+        .then((blob) => {
+          download(blob, `${safe}.png`);
+          toast("PNG downloaded", "ok");
+        })
+        .catch(() => toast("PNG export failed", "warn"));
     } else {
       const blob = new Blob([JSON.stringify({ app: "driftboard", version: 1, ...diagram }, null, 2)], {
         type: "application/json",
       });
       download(blob, `${safe}.json`);
+      toast("JSON downloaded", "ok");
     }
-    toast(kind === "svg" ? "SVG downloaded" : "JSON downloaded", "ok");
+  };
+
+  /* ---------- import ---------- */
+
+  const importInputRef = useRef<HTMLInputElement | null>(null);
+
+  const importFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = parseDiagramFile(String(reader.result ?? ""));
+      if (!result.ok) {
+        toast(result.error, "warn");
+        return;
+      }
+      store.commit(result.diagram);
+      store.setSelection(null);
+      setFlashKey((k) => k + 1);
+      toast(`Imported “${result.diagram.title}”`, "ok");
+      window.setTimeout(() => fitRef.current?.fitView(), 90);
+    };
+    reader.onerror = () => toast("Could not read the file", "warn");
+    reader.readAsText(file);
   };
 
   const download = (blob: Blob, name: string) => {
@@ -262,14 +339,24 @@ export default function App() {
     if (t !== diagram.title) store.commit({ ...diagram, title: t });
   };
 
+  /* ---------- search ---------- */
+
+  const matchIds = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return null;
+    return new Set(
+      diagram.nodes.filter((n) => n.label.toLowerCase().includes(q)).map((n) => n.id),
+    );
+  }, [query, diagram.nodes]);
+
   /* ---------- keyboard shortcuts ---------- */
 
-  const handlersRef = useRef({ store, selection, duplicateNode, deleteSelected, tool, contractOpen });
-  handlersRef.current = { store, selection, duplicateNode, deleteSelected, tool, contractOpen };
+  const handlersRef = useRef({ store, selection, duplicateNode, deleteSelected, tool, contractOpen, aiOpen });
+  handlersRef.current = { store, selection, duplicateNode, deleteSelected, tool, contractOpen, aiOpen };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (handlersRef.current.contractOpen) return;
+      if (handlersRef.current.contractOpen || handlersRef.current.aiOpen) return;
       const el = e.target as HTMLElement;
       const typing = el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable;
       const h = handlersRef.current;
@@ -300,6 +387,11 @@ export default function App() {
         case "h": setTool("pan"); break;
         case "n": setTool("node"); break;
         case "c": setTool("connect"); break;
+        case "g": setAiOpen(true); break;
+        case "/":
+          e.preventDefault();
+          document.getElementById("board-search")?.focus();
+          break;
         case "delete":
         case "backspace":
           e.preventDefault();
@@ -329,6 +421,11 @@ export default function App() {
         onRedo={store.redo}
         onTidy={tidyBoard}
         onExport={exportDiagram}
+        onImport={() => importInputRef.current?.click()}
+        onOpenAi={() => setAiOpen(true)}
+        query={query}
+        onQueryChange={setQuery}
+        matchCount={matchIds ? matchIds.size : null}
         saveState={saveState}
         libraryOpen={libraryOpen}
         onToggleLibrary={() => setLibraryOpen((v) => !v)}
@@ -349,6 +446,7 @@ export default function App() {
             onNodeMove={moveNode}
             onAddEdge={addEdge}
             onEditNode={editNodeLabel}
+            matchIds={matchIds}
             contract={contract}
             onOpenContract={() => setContractOpen(true)}
           />
@@ -363,7 +461,29 @@ export default function App() {
           onDuplicateNode={duplicateNode}
         />
       </div>
+      <input
+        ref={importInputRef}
+        type="file"
+        accept=".json,application/json"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) importFile(file);
+          e.target.value = "";
+        }}
+      />
+
       <Toasts toasts={toasts} />
+
+      {aiOpen && (
+        <AiPanel
+          diagram={diagram}
+          selection={selection}
+          onApplyDiagram={applyAiDiagram}
+          onApplyExtension={applyAiExtension}
+          onClose={() => setAiOpen(false)}
+        />
+      )}
 
       {bootPhase !== "off" && <BootVeil leaving={bootPhase === "leaving"} />}
       {contractOpen && (

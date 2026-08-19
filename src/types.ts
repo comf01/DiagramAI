@@ -24,6 +24,7 @@ export interface DiagramEdge {
   from: string;
   to: string;
   arrow: boolean;
+  label?: string;
 }
 
 export interface Diagram {

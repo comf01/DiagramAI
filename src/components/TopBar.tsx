@@ -1,9 +1,11 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { LAYOUTS, type LayoutKind } from "../layouts";
 import {
   IconChevronDown,
   IconDownload,
   IconPanel,
   IconRedo,
+  IconSpark,
   IconUndo,
   IconWand,
   LogoMark,
@@ -16,8 +18,13 @@ interface TopBarProps {
   canRedo: boolean;
   onUndo: () => void;
   onRedo: () => void;
-  onTidy: () => void;
-  onExport: (kind: "svg" | "json") => void;
+  onTidy: (kind: LayoutKind) => void;
+  onExport: (kind: "svg" | "json" | "png") => void;
+  onImport: () => void;
+  onOpenAi: () => void;
+  query: string;
+  onQueryChange: (q: string) => void;
+  matchCount: number | null;
   saveState: "saving" | "saved";
   libraryOpen: boolean;
   onToggleLibrary: () => void;
@@ -50,6 +57,7 @@ function BarButton({
 export function TopBar(props: TopBarProps) {
   const [draft, setDraft] = useState(props.title);
   const [exportOpen, setExportOpen] = useState(false);
+  const [tidyOpen, setTidyOpen] = useState(false);
 
   useEffect(() => setDraft(props.title), [props.title]);
 
@@ -95,6 +103,33 @@ export function TopBar(props: TopBarProps) {
 
       <div className="flex-1" />
 
+      <div className="relative">
+        <input
+          id="board-search"
+          value={props.query}
+          onChange={(e) => props.onQueryChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              props.onQueryChange("");
+              (e.target as HTMLInputElement).blur();
+            }
+          }}
+          placeholder="Search nodes  /"
+          spellCheck={false}
+          aria-label="Search nodes"
+          className="w-40 rounded-lg border border-ink-700 bg-ink-850 px-2.5 py-1.5 text-[12px] font-medium text-ink-100 placeholder:text-ink-500 transition-all duration-150 focus:w-52 focus:border-accent/50"
+        />
+        {props.matchCount !== null && (
+          <span
+            className={`pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded-full px-1.5 font-mono text-[9.5px] ${
+              props.matchCount > 0 ? "bg-accent/15 text-accent" : "bg-rose-500/15 text-rose-300"
+            }`}
+          >
+            {props.matchCount}
+          </span>
+        )}
+      </div>
+
       <div className="flex items-center gap-1 rounded-xl border border-ink-700/80 bg-ink-850 p-1">
         <BarButton onClick={props.onUndo} disabled={!props.canUndo} label="Undo (⌘Z)">
           <IconUndo size={15} />
@@ -103,11 +138,43 @@ export function TopBar(props: TopBarProps) {
           <IconRedo size={15} />
         </BarButton>
         <div className="mx-0.5 h-5 w-px bg-ink-700" />
-        <BarButton onClick={props.onTidy} label="Auto-arrange as radial tree">
-          <IconWand size={15} />
-          <span className="hidden md:inline">Tidy</span>
-        </BarButton>
+        <div className="relative">
+          <BarButton onClick={() => setTidyOpen((v) => !v)} label="Auto-arrange the board">
+            <IconWand size={15} />
+            <span className="hidden md:inline">Tidy</span>
+            <IconChevronDown size={11} className={`transition-transform duration-200 ${tidyOpen ? "rotate-180" : ""}`} />
+          </BarButton>
+          {tidyOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setTidyOpen(false)} />
+              <div className="fade-up absolute right-0 top-10 z-50 w-48 overflow-hidden rounded-xl border border-ink-600 bg-ink-800 shadow-2xl shadow-black/60">
+                {LAYOUTS.map((l) => (
+                  <button
+                    key={l.key}
+                    onClick={() => {
+                      setTidyOpen(false);
+                      props.onTidy(l.key);
+                    }}
+                    className="flex w-full flex-col items-start px-4 py-2.5 text-left transition-colors hover:bg-ink-700"
+                  >
+                    <span className="text-[13px] font-semibold text-ink-100">{l.name}</span>
+                    <span className="font-mono text-[10px] text-ink-400">{l.blurb}</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       </div>
+
+      <button
+        onClick={props.onOpenAi}
+        title="Generate with AI (G)"
+        className="flex h-9 items-center gap-2 rounded-xl border border-iris/40 bg-iris/10 px-3.5 text-[12.5px] font-semibold text-iris transition-all duration-150 hover:bg-iris/20 active:scale-95"
+      >
+        <IconSpark size={15} />
+        <span className="hidden md:inline">AI</span>
+      </button>
 
       <div className="relative">
         <button
@@ -125,6 +192,7 @@ export function TopBar(props: TopBarProps) {
               {(
                 [
                   ["svg", "Vector SVG", "Crisp at any size"],
+                  ["png", "PNG image", "For docs & chat"],
                   ["json", "JSON data", "Portable document"],
                 ] as const
               ).map(([kind, name, sub]) => (
@@ -140,6 +208,16 @@ export function TopBar(props: TopBarProps) {
                   <span className="font-mono text-[10px] text-ink-400">{sub}</span>
                 </button>
               ))}
+              <button
+                onClick={() => {
+                  setExportOpen(false);
+                  props.onImport();
+                }}
+                className="flex w-full flex-col items-start border-t border-ink-700 px-4 py-2.5 text-left transition-colors hover:bg-ink-700"
+              >
+                <span className="text-[13px] font-semibold text-ink-100">Import JSON…</span>
+                <span className="font-mono text-[10px] text-ink-400">Load an exported board</span>
+              </button>
             </div>
           </>
         )}

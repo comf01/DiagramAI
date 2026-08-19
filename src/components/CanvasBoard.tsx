@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { MutableRefObject } from "react";
 import type { Diagram, DiagramNode, Selection, Tool } from "../types";
 import { COLORS, EDGE_SELECTED, shapeMeta } from "../palette";
-import { clamp, edgeGeometry, nodeRadius, boundsOf, truncateLabel } from "../geometry";
+import { clamp, edgeGeometry, edgeMidpoint, nodeRadius, boundsOf, truncateLabel } from "../geometry";
 import { MiniMap } from "./MiniMap";
 import {
   IconCursor,
@@ -32,6 +32,7 @@ interface CanvasBoardProps {
   onNodeMove: (id: string, x: number, y: number) => void;
   onAddEdge: (from: string, to: string) => boolean;
   onEditNode: (id: string, label: string) => void;
+  matchIds: Set<string> | null;
   contract: { name: string; ts: number } | null;
   onOpenContract: () => void;
 }
@@ -396,6 +397,25 @@ export function CanvasBoard(props: CanvasBoardProps) {
                     className="edge-in"
                   />
                   {g.arrowPts && <polygon points={g.arrowPts} fill={stroke} fillOpacity={active ? 1 : 0.85} />}
+                  {e.label && (() => {
+                    const m = edgeMidpoint(a, z);
+                    const w = e.label.length * 6.4 + 12;
+                    return (
+                      <g pointerEvents="none">
+                        <rect x={m.x - w / 2} y={m.y - 9} width={w} height={18} rx={9} fill="#0B101B" fillOpacity={0.88} />
+                        <text
+                          x={m.x}
+                          y={m.y + 1}
+                          textAnchor="middle"
+                          dominantBaseline="central"
+                          fontSize={10.5}
+                          fill={active ? EDGE_SELECTED : "#B8C2DB"}
+                        >
+                          {e.label}
+                        </text>
+                      </g>
+                    );
+                  })()}
                 </g>
               );
             })}
@@ -423,14 +443,19 @@ export function CanvasBoard(props: CanvasBoardProps) {
               const r = nodeRadius(n.shape);
               const active = selection?.kind === "node" && selection.id === n.id;
               const isPending = pendingFrom === n.id;
+              const matched = props.matchIds?.has(n.id) ?? false;
+              const dimmed = props.matchIds !== null && !matched;
               return (
                 <g
                   key={n.id}
                   data-node-id={n.id}
                   className={`node-g ${active ? "is-selected" : ""}`}
-                  style={{ transform: `translate(${n.x}px, ${n.y}px)` }}
+                  style={{ transform: `translate(${n.x}px, ${n.y}px)`, opacity: dimmed ? 0.22 : 1, transition: "opacity 0.2s" }}
                 >
                   <g className="pop">
+                    {matched && !active && (
+                      <circle r={r + 9} fill="none" stroke="#FFD98A" strokeOpacity={0.85} strokeWidth={2.5} strokeDasharray="3 5" />
+                    )}
                     {active && (
                       <>
                         <circle r={r + 11} fill="none" stroke={meta.fill} strokeOpacity={0.3} strokeWidth={6} />
@@ -586,7 +611,7 @@ export function CanvasBoard(props: CanvasBoardProps) {
         </button>
       </div>
 
-      <MiniMap diagram={diagram} tf={tf} view={view} onJump={jumpTo} />
+      <MiniMap diagram={diagram} tf={tf} view={view} matchIds={props.matchIds} onJump={jumpTo} />
 
       {/* status strip */}
       <div className="absolute inset-x-0 bottom-0 z-10 flex h-7 items-center gap-4 border-t border-ink-700/60 bg-ink-900/88 px-3 font-mono text-[10px] text-ink-400 backdrop-blur-sm">
