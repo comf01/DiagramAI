@@ -1,4 +1,13 @@
+import type { ColorKey } from "../types";
+
 export type PortDataType = "boolean" | "number" | "string";
+
+/** Per-datatype port color, reusing the existing 8-key palette instead of new tokens. */
+export const DATATYPE_COLOR: Record<PortDataType, ColorKey> = {
+  boolean: "teal",
+  number: "sky",
+  string: "rose",
+};
 
 export interface PortSpec {
   id: string;
