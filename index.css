@@ -1,0 +1,280 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Bricolage Grotesque", "IBM Plex Sans", sans-serif;
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  --color-ink-950: #070a12;
+  --color-ink-900: #0b101b;
+  --color-ink-850: #0e1422;
+  --color-ink-800: #121a2b;
+  --color-ink-700: #1b2438;
+  --color-ink-600: #273350;
+  --color-ink-500: #3b4a6e;
+  --color-ink-400: #55617f;
+  --color-ink-300: #8c97b2;
+  --color-ink-200: #b8c1d6;
+  --color-ink-100: #e4e9f4;
+
+  --color-accent: #ffb224;
+  --color-accent-soft: #ffd98a;
+  --color-ember: #ff7a66;
+  --color-mint: #a5e359;
+  --color-lagoon: #35d3c0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--color-ink-900);
+  color: var(--color-ink-100);
+  font-family: var(--font-sans);
+  overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: rgba(255, 178, 36, 0.3);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #273350 transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #273350;
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+input,
+button {
+  font-family: inherit;
+}
+input:focus,
+button:focus {
+  outline: none;
+}
+
+.kbd {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1;
+  padding: 3px 5px;
+  border-radius: 5px;
+  border: 1px solid #273350;
+  border-bottom-width: 2px;
+  background: #121a2b;
+  color: #b8c1d6;
+  white-space: nowrap;
+}
+
+/* ---------- canvas life ---------- */
+
+.ants {
+  stroke-dasharray: 5 7;
+  animation: ants 0.9s linear infinite;
+}
+@keyframes ants {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+.edge-in {
+  stroke-dasharray: 1;
+  animation: edgeIn 0.55s cubic-bezier(0.3, 0.7, 0.3, 1) 0.04s both;
+}
+@keyframes edgeIn {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.pop {
+  animation: pop 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.35) both;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@keyframes pop {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.07);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.board-in {
+  animation: boardIn 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@keyframes boardIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.fade-up {
+  animation: fadeUp 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(9px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.toast-in {
+  animation: toastIn 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.pulse-dot {
+  animation: pulseDot 1.5s ease infinite;
+}
+@keyframes pulseDot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.node-g {
+  cursor: grab;
+}
+.node-g:active {
+  cursor: grabbing;
+}
+.node-g .port {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.node-g:hover .port,
+.node-g.is-selected .port {
+  opacity: 1;
+}
+
+.grid-anim {
+  transition:
+    background-position 0.4s cubic-bezier(0.2, 0.8, 0.3, 1),
+    background-size 0.4s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+/* ---------- contract & boot ---------- */
+
+.spin-slow {
+  animation: spinSlow 32s linear infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@keyframes spinSlow {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.breathe {
+  animation: breathe 4.5s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+
+.draw {
+  stroke-dasharray: 1;
+  animation: drawIn 1s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+@keyframes drawIn {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.fade-late {
+  animation: fadeUp 0.55s cubic-bezier(0.2, 0.8, 0.3, 1) 0.55s both;
+}
+
+.modal-pop {
+  animation: modalPop 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.15) both;
+}
+@keyframes modalPop {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.glow-a {
+  animation: glowDrift 16s ease-in-out infinite alternate;
+}
+.glow-b {
+  animation: glowDrift 21s ease-in-out infinite alternate-reverse;
+}
+@keyframes glowDrift {
+  from {
+    transform: translate3d(-2.5%, -1.5%, 0) scale(1);
+  }
+  to {
+    transform: translate3d(3%, 2.5%, 0) scale(1.08);
+  }
+}
