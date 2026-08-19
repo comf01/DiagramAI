@@ -22,29 +22,48 @@ export interface EdgeGeometry {
   arrowPts?: string;
 }
 
-/** Cubic bezier between two nodes, trimmed at node boundaries, optional arrowhead. */
-export function edgeGeometry(
-  a: DiagramNode,
-  b: DiagramNode,
-  arrow: boolean,
-): EdgeGeometry {
+interface Pt {
+  x: number;
+  y: number;
+}
+
+/** Axis-aligned bezier control points shared by path building and midpoint math. */
+function edgeControls(a: DiagramNode, b: DiagramNode): { c1: Pt; c2: Pt } {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
-  let c1: { x: number; y: number };
-  let c2: { x: number; y: number };
   if (Math.abs(dx) >= Math.abs(dy)) {
-    c1 = { x: a.x + dx * 0.5, y: a.y };
-    c2 = { x: b.x - dx * 0.5, y: b.y };
-  } else {
-    c1 = { x: a.x, y: a.y + dy * 0.5 };
-    c2 = { x: b.x, y: b.y - dy * 0.5 };
+    return { c1: { x: a.x + dx * 0.5, y: a.y }, c2: { x: b.x - dx * 0.5, y: b.y } };
   }
+  return { c1: { x: a.x, y: a.y + dy * 0.5 }, c2: { x: b.x, y: b.y - dy * 0.5 } };
+}
+
+function edgeEndpoints(a: DiagramNode, b: DiagramNode, arrow: boolean) {
+  const { c1, c2 } = edgeControls(a, b);
   const ra = nodeRadius(a.shape) + 2;
   const rb = nodeRadius(b.shape) + (arrow ? 8 : 3);
   const t0 = norm(c1.x - a.x, c1.y - a.y);
   const p0 = { x: a.x + t0.x * ra, y: a.y + t0.y * ra };
   const t1 = norm(b.x - c2.x, b.y - c2.y);
   const p3 = { x: b.x - t1.x * rb, y: b.y - t1.y * rb };
+  return { p0, c1, c2, p3, t1 };
+}
+
+/** Point on the edge curve at t = 0.5 — where edge labels sit. */
+export function edgeMidpoint(a: DiagramNode, b: DiagramNode): Pt {
+  const { p0, c1, c2, p3 } = edgeEndpoints(a, b, false);
+  return {
+    x: (p0.x + 3 * c1.x + 3 * c2.x + p3.x) / 8,
+    y: (p0.y + 3 * c1.y + 3 * c2.y + p3.y) / 8,
+  };
+}
+
+/** Cubic bezier between two nodes, trimmed at node boundaries, optional arrowhead. */
+export function edgeGeometry(
+  a: DiagramNode,
+  b: DiagramNode,
+  arrow: boolean,
+): EdgeGeometry {
+  const { p0, c1, c2, p3, t1 } = edgeEndpoints(a, b, arrow);
 
   const d = `M ${p0.x.toFixed(2)} ${p0.y.toFixed(2)} C ${c1.x.toFixed(2)} ${c1.y.toFixed(2)}, ${c2.x.toFixed(2)} ${c2.y.toFixed(2)}, ${p3.x.toFixed(2)} ${p3.y.toFixed(2)}`;
 
@@ -197,6 +216,14 @@ export function buildSvgExport(diagram: Diagram): string {
       `<path d="${g.d}" fill="none" stroke="${stroke}" stroke-opacity="0.75" stroke-width="2.4" stroke-linecap="round"/>`,
     );
     if (g.arrowPts) parts.push(`<polygon points="${g.arrowPts}" fill="${stroke}"/>`);
+    if (e.label) {
+      const m = edgeMidpoint(a, z);
+      const w = e.label.length * 6.4 + 12;
+      parts.push(
+        `<rect x="${(m.x - w / 2).toFixed(2)}" y="${(m.y - 9).toFixed(2)}" width="${w.toFixed(2)}" height="18" rx="9" fill="#0A0E17" fill-opacity="0.85"/>`,
+        `<text x="${m.x.toFixed(2)}" y="${(m.y + 1).toFixed(2)}" text-anchor="middle" dominant-baseline="central" font-size="10.5" fill="#B8C2DB" font-family="'IBM Plex Sans', sans-serif">${escapeXml(e.label)}</text>`,
+      );
+    }
   }
   for (const n of diagram.nodes) {
     parts.push(`<g transform="translate(${n.x},${n.y})">${shapeMarkup(n)}</g>`);

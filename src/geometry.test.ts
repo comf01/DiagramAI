@@ -3,6 +3,7 @@ import {
   boundsOf,
   clamp,
   edgeGeometry,
+  edgeMidpoint,
   nodeRadius,
   radialTidy,
   truncateLabel,
@@ -79,6 +80,21 @@ describe("edgeGeometry", () => {
     const g = edgeGeometry(a, b, false);
     const m = g.d.match(/^M ([-\d.]+) [-\d.]+/)!;
     expect(Number(m[1])).toBeGreaterThanOrEqual(nodeRadius("circle"));
+  });
+});
+
+describe("edgeMidpoint", () => {
+  it("sits halfway between a horizontal same-shape pair", () => {
+    const m = edgeMidpoint(node("a"), node("b", { x: 400 }));
+    expect(m.x).toBeCloseTo(200, 0);
+    expect(m.y).toBeCloseTo(0, 5);
+  });
+
+  it("stays between the two nodes vertically", () => {
+    const m = edgeMidpoint(node("a"), node("b", { y: 400 }));
+    expect(m.y).toBeGreaterThan(0);
+    expect(m.y).toBeLessThan(400);
+    expect(m.x).toBeCloseTo(0, 5);
   });
 });
 

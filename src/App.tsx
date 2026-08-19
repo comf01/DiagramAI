@@ -170,10 +170,15 @@ export default function App() {
     });
   };
 
-  const patchEdge = (id: string, patch: Partial<{ arrow: boolean }>) => {
+  const patchEdge = (id: string, patch: Partial<{ arrow: boolean; label: string }>) => {
     store.commit({
       ...diagram,
-      edges: diagram.edges.map((e) => (e.id === id ? { ...e, ...patch } : e)),
+      edges: diagram.edges.map((e) => {
+        if (e.id !== id) return e;
+        const next = { ...e, ...patch };
+        if (!next.label) delete next.label;
+        return next;
+      }),
     });
   };
 

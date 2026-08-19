@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { MutableRefObject } from "react";
 import type { Diagram, DiagramNode, Selection, Tool } from "../types";
 import { COLORS, EDGE_SELECTED, shapeMeta } from "../palette";
-import { clamp, edgeGeometry, nodeRadius, boundsOf, truncateLabel } from "../geometry";
+import { clamp, edgeGeometry, edgeMidpoint, nodeRadius, boundsOf, truncateLabel } from "../geometry";
 import { MiniMap } from "./MiniMap";
 import {
   IconCursor,
@@ -396,6 +396,25 @@ export function CanvasBoard(props: CanvasBoardProps) {
                     className="edge-in"
                   />
                   {g.arrowPts && <polygon points={g.arrowPts} fill={stroke} fillOpacity={active ? 1 : 0.85} />}
+                  {e.label && (() => {
+                    const m = edgeMidpoint(a, z);
+                    const w = e.label.length * 6.4 + 12;
+                    return (
+                      <g pointerEvents="none">
+                        <rect x={m.x - w / 2} y={m.y - 9} width={w} height={18} rx={9} fill="#0B101B" fillOpacity={0.88} />
+                        <text
+                          x={m.x}
+                          y={m.y + 1}
+                          textAnchor="middle"
+                          dominantBaseline="central"
+                          fontSize={10.5}
+                          fill={active ? EDGE_SELECTED : "#B8C2DB"}
+                        >
+                          {e.label}
+                        </text>
+                      </g>
+                    );
+                  })()}
                 </g>
               );
             })}

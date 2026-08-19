@@ -16,7 +16,7 @@ interface InspectorProps {
   diagram: Diagram;
   selection: Selection;
   onPatchNode: (id: string, patch: Partial<{ label: string; color: ColorKey; shape: Shape }>) => void;
-  onPatchEdge: (id: string, patch: Partial<{ arrow: boolean }>) => void;
+  onPatchEdge: (id: string, patch: Partial<{ arrow: boolean; label: string }>) => void;
   onReverseEdge: (id: string) => void;
   onDeleteSelected: () => void;
   onDuplicateNode: (id: string) => void;
@@ -36,6 +36,9 @@ export function Inspector(props: InspectorProps) {
 
   const [labelDraft, setLabelDraft] = useState(node?.label ?? "");
   useEffect(() => setLabelDraft(node?.label ?? ""), [node?.id, node?.label]);
+
+  const [edgeLabelDraft, setEdgeLabelDraft] = useState(edge?.label ?? "");
+  useEffect(() => setEdgeLabelDraft(edge?.label ?? ""), [edge?.id, edge?.label]);
 
   const fromNode = edge ? diagram.nodes.find((n) => n.id === edge.from) : undefined;
   const toNode = edge ? diagram.nodes.find((n) => n.id === edge.to) : undefined;
@@ -165,6 +168,27 @@ export function Inspector(props: InspectorProps) {
                 </span>
                 <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: COLORS[toNode.color].fill }} />
               </div>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block font-mono text-[9.5px] uppercase tracking-[0.18em] text-ink-400">
+                Label
+              </label>
+              <input
+                value={edgeLabelDraft}
+                onChange={(e) => setEdgeLabelDraft(e.target.value)}
+                onBlur={() => props.onPatchEdge(edge.id, { label: edgeLabelDraft.trim() })}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                  if (e.key === "Escape") {
+                    setEdgeLabelDraft(edge.label ?? "");
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }}
+                placeholder="e.g. depends on"
+                spellCheck={false}
+                className="w-full rounded-lg border border-ink-600 bg-ink-800 px-3 py-2 text-[13px] font-medium text-ink-100 transition-colors focus:border-accent/60"
+              />
             </div>
 
             <div className="flex items-center justify-between rounded-lg border border-ink-700 bg-ink-850 px-3 py-2.5">
