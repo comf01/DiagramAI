@@ -24,6 +24,20 @@ The AI panel (the **AI** button, or `G`) calls the Anthropic API **directly from
 
 Your key is stored only in this browser's `localStorage` and sent only to `api.anthropic.com`. Don't save it in a browser you share with others; API usage is billed to your Anthropic account.
 
+## Deployment
+
+This is a static Vite app — any static host works. To get a real HTTPS URL you can open from a phone:
+
+**Vercel**
+1. [vercel.com/new](https://vercel.com/new) → import this GitHub repo.
+2. Framework preset **Vite** is auto-detected; no config needed. Deploy.
+
+**Netlify**
+1. [app.netlify.com/start](https://app.netlify.com/start) → import this GitHub repo.
+2. Build settings come from the committed `netlify.toml` (`npm run build`, publish `dist`). Deploy.
+
+Both rebuild automatically on every push to the connected branch. The AI feature needs no server-side secrets — each visitor supplies their own Anthropic API key in the browser (see below) — so no environment variables are required for either host.
+
 ## Development
 
 ```bash
