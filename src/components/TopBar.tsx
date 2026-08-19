@@ -4,6 +4,7 @@ import {
   IconDownload,
   IconPanel,
   IconRedo,
+  IconSpark,
   IconUndo,
   IconWand,
   LogoMark,
@@ -18,6 +19,7 @@ interface TopBarProps {
   onRedo: () => void;
   onTidy: () => void;
   onExport: (kind: "svg" | "json") => void;
+  onOpenAi: () => void;
   saveState: "saving" | "saved";
   libraryOpen: boolean;
   onToggleLibrary: () => void;
@@ -108,6 +110,15 @@ export function TopBar(props: TopBarProps) {
           <span className="hidden md:inline">Tidy</span>
         </BarButton>
       </div>
+
+      <button
+        onClick={props.onOpenAi}
+        title="Generate with AI (G)"
+        className="flex h-9 items-center gap-2 rounded-xl border border-iris/40 bg-iris/10 px-3.5 text-[12.5px] font-semibold text-iris transition-all duration-150 hover:bg-iris/20 active:scale-95"
+      >
+        <IconSpark size={15} />
+        <span className="hidden md:inline">AI</span>
+      </button>
 
       <div className="relative">
         <button

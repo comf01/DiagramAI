@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import type { ColorKey, Diagram, Selection, ToastKind, ToastMsg, Tool } from "./types";
 import { useDiagram, uid } from "./useDiagram";
 import { makeTemplate } from "./templates";
-import { radialTidy, buildSvgExport } from "./geometry";
+import { radialTidy, buildSvgExport, boundsOf } from "./geometry";
+import type { Extension } from "./ai/schema";
+import { AiPanel, type AiApplyMode } from "./components/AiPanel";
 import { COLOR_KEYS } from "./palette";
 import { TopBar } from "./components/TopBar";
 import { TemplatePanel } from "./components/TemplatePanel";
@@ -51,6 +53,7 @@ export default function App() {
 
   const [tool, setTool] = useState<Tool>("select");
   const [libraryOpen, setLibraryOpen] = useState(true);
+  const [aiOpen, setAiOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastMsg[]>([]);
   const [saveState, setSaveState] = useState<"saving" | "saved">("saved");
   const [flashKey, setFlashKey] = useState(1);
@@ -229,6 +232,41 @@ export default function App() {
     window.setTimeout(() => fitRef.current?.fitView(), 90);
   };
 
+  /* ---------- AI generation ---------- */
+
+  const applyAiDiagram = (d: Diagram, mode: AiApplyMode) => {
+    if (mode === "replace" || diagram.nodes.length === 0) {
+      store.commit(d);
+    } else {
+      const existing = boundsOf(diagram.nodes, 0);
+      const incoming = boundsOf(d.nodes, 0);
+      const dx = existing && incoming ? existing.minX + existing.w + 250 - incoming.minX : 0;
+      const dy = existing && incoming ? existing.minY - incoming.minY : 0;
+      store.commit({
+        ...diagram,
+        nodes: [...diagram.nodes, ...d.nodes.map((n) => ({ ...n, x: n.x + dx, y: n.y + dy }))],
+        edges: [...diagram.edges, ...d.edges],
+      });
+    }
+    store.setSelection(null);
+    setFlashKey((k) => k + 1);
+    toast("Diagram generated", "ok");
+    window.setTimeout(() => fitRef.current?.fitView(), 90);
+  };
+
+  const applyAiExtension = (_nodeId: string, ext: Extension) => {
+    store.commit(
+      radialTidy({
+        ...diagram,
+        nodes: [...diagram.nodes, ...ext.nodes],
+        edges: [...diagram.edges, ...ext.edges],
+      }),
+    );
+    setFlashKey((k) => k + 1);
+    toast(`Added ${ext.nodes.length} nodes`, "ok");
+    window.setTimeout(() => fitRef.current?.fitView(), 90);
+  };
+
   const tidyBoard = () => {
     if (diagram.nodes.length < 2) {
       toast("Nothing to arrange yet", "warn");
@@ -269,12 +307,12 @@ export default function App() {
 
   /* ---------- keyboard shortcuts ---------- */
 
-  const handlersRef = useRef({ store, selection, duplicateNode, deleteSelected, tool, contractOpen });
-  handlersRef.current = { store, selection, duplicateNode, deleteSelected, tool, contractOpen };
+  const handlersRef = useRef({ store, selection, duplicateNode, deleteSelected, tool, contractOpen, aiOpen });
+  handlersRef.current = { store, selection, duplicateNode, deleteSelected, tool, contractOpen, aiOpen };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (handlersRef.current.contractOpen) return;
+      if (handlersRef.current.contractOpen || handlersRef.current.aiOpen) return;
       const el = e.target as HTMLElement;
       const typing = el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable;
       const h = handlersRef.current;
@@ -305,6 +343,7 @@ export default function App() {
         case "h": setTool("pan"); break;
         case "n": setTool("node"); break;
         case "c": setTool("connect"); break;
+        case "g": setAiOpen(true); break;
         case "delete":
         case "backspace":
           e.preventDefault();
@@ -334,6 +373,7 @@ export default function App() {
         onRedo={store.redo}
         onTidy={tidyBoard}
         onExport={exportDiagram}
+        onOpenAi={() => setAiOpen(true)}
         saveState={saveState}
         libraryOpen={libraryOpen}
         onToggleLibrary={() => setLibraryOpen((v) => !v)}
@@ -369,6 +409,16 @@ export default function App() {
         />
       </div>
       <Toasts toasts={toasts} />
+
+      {aiOpen && (
+        <AiPanel
+          diagram={diagram}
+          selection={selection}
+          onApplyDiagram={applyAiDiagram}
+          onApplyExtension={applyAiExtension}
+          onClose={() => setAiOpen(false)}
+        />
+      )}
 
       {bootPhase !== "off" && <BootVeil leaving={bootPhase === "leaving"} />}
       {contractOpen && (
