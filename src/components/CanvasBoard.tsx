@@ -32,6 +32,8 @@ interface CanvasBoardProps {
   onNodeMove: (id: string, x: number, y: number) => void;
   onAddEdge: (from: string, to: string) => boolean;
   onEditNode: (id: string, label: string) => void;
+  contract: { name: string; ts: number } | null;
+  onOpenContract: () => void;
 }
 
 type DragState =
@@ -589,6 +591,35 @@ export function CanvasBoard(props: CanvasBoardProps) {
       {/* status strip */}
       <div className="absolute inset-x-0 bottom-0 z-10 flex h-7 items-center gap-4 border-t border-ink-700/60 bg-ink-900/88 px-3 font-mono text-[10px] text-ink-400 backdrop-blur-sm">
         <span className="min-w-0 flex-1 truncate text-ink-300">{hint}</span>
+        <button
+          onClick={props.onOpenContract}
+          title={
+            props.contract
+              ? `Canvas Contract — signed by ${props.contract.name}. Click to re-read.`
+              : "The Canvas Contract — click to read & sign"
+          }
+          className={`flex h-5.5 shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 uppercase tracking-[0.14em] transition-all duration-200 hover:scale-[1.04] active:scale-95 ${
+            props.contract
+              ? "border-accent/40 text-accent hover:bg-accent/10"
+              : "border-ember/45 text-ember hover:bg-ember/10"
+          }`}
+        >
+          <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true">
+            <circle
+              cx="8"
+              cy="8"
+              r="6.4"
+              fill="none"
+              stroke="currentColor"
+              strokeOpacity="0.75"
+              strokeWidth="1.1"
+              strokeDasharray="2.5 3"
+              className="spin-slow"
+            />
+            <circle cx="8" cy="8" r="2.4" fill="currentColor" className="breathe" />
+          </svg>
+          {props.contract ? `${props.contract.name.slice(0, 12)} · signed` : "sign pact"}
+        </button>
         <span className="hidden sm:inline">
           x <span className="text-ink-200">{cursor.x}</span> · y <span className="text-ink-200">{cursor.y}</span>
         </span>

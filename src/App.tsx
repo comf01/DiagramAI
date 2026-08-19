@@ -9,8 +9,24 @@ import { TemplatePanel } from "./components/TemplatePanel";
 import { Inspector } from "./components/Inspector";
 import { CanvasBoard, type BoardApi } from "./components/CanvasBoard";
 import { Toasts } from "./components/Toasts";
+import { BootVeil } from "./components/BootVeil";
+import { ContractModal, type ContractRecord } from "./components/ContractModal";
 
 const STORAGE_KEY = "driftboard.v1";
+const CONTRACT_KEY = "driftboard.contract.v1";
+
+function loadContract(): ContractRecord | null {
+  try {
+    const raw = localStorage.getItem(CONTRACT_KEY);
+    if (raw) {
+      const c = JSON.parse(raw) as ContractRecord;
+      if (c && typeof c.name === "string" && typeof c.ts === "number") return c;
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
 
 function loadInitial(): Diagram {
   try {
@@ -39,6 +55,47 @@ export default function App() {
   const [saveState, setSaveState] = useState<"saving" | "saved">("saved");
   const [flashKey, setFlashKey] = useState(1);
   const fitRef = useRef<BoardApi | null>(null);
+
+  /* ---------- boot veil + canvas contract ---------- */
+
+  const [bootPhase, setBootPhase] = useState<"on" | "leaving" | "off">("on");
+  const [contract, setContract] = useState<ContractRecord | null>(loadContract);
+  const [contractOpen, setContractOpen] = useState(false);
+
+  useEffect(() => {
+    const t1 = window.setTimeout(() => setBootPhase("leaving"), 1050);
+    const t2 = window.setTimeout(() => setBootPhase("off"), 1600);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (bootPhase !== "on" && !contract) setContractOpen(true);
+  }, [bootPhase, contract]);
+
+  const signContract = (name: string) => {
+    const rec: ContractRecord = { name, ts: Date.now() };
+    try {
+      localStorage.setItem(CONTRACT_KEY, JSON.stringify(rec));
+    } catch {
+      /* ignore */
+    }
+    setContract(rec);
+    setContractOpen(false);
+    toast(`Contract signed — welcome, ${name}`, "ok");
+  };
+
+  const forgetContract = () => {
+    try {
+      localStorage.removeItem(CONTRACT_KEY);
+    } catch {
+      /* ignore */
+    }
+    setContract(null);
+    toast("Signature cleared — the pact awaits again", "info");
+  };
 
   /* ---------- toasts ---------- */
 
@@ -207,11 +264,12 @@ export default function App() {
 
   /* ---------- keyboard shortcuts ---------- */
 
-  const handlersRef = useRef({ store, selection, duplicateNode, deleteSelected, tool });
-  handlersRef.current = { store, selection, duplicateNode, deleteSelected, tool };
+  const handlersRef = useRef({ store, selection, duplicateNode, deleteSelected, tool, contractOpen });
+  handlersRef.current = { store, selection, duplicateNode, deleteSelected, tool, contractOpen };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (handlersRef.current.contractOpen) return;
       const el = e.target as HTMLElement;
       const typing = el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable;
       const h = handlersRef.current;
@@ -291,6 +349,8 @@ export default function App() {
             onNodeMove={moveNode}
             onAddEdge={addEdge}
             onEditNode={editNodeLabel}
+            contract={contract}
+            onOpenContract={() => setContractOpen(true)}
           />
         </main>
         <Inspector
@@ -304,6 +364,16 @@ export default function App() {
         />
       </div>
       <Toasts toasts={toasts} />
+
+      {bootPhase !== "off" && <BootVeil leaving={bootPhase === "leaving"} />}
+      {contractOpen && (
+        <ContractModal
+          record={contract}
+          onSign={signContract}
+          onForget={forgetContract}
+          onClose={() => setContractOpen(false)}
+        />
+      )}
     </div>
   );
 }

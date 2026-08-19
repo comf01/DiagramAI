@@ -203,6 +203,67 @@ button:focus {
     background-size 0.4s cubic-bezier(0.2, 0.8, 0.3, 1);
 }
 
+/* ---------- contract & boot ---------- */
+
+.spin-slow {
+  animation: spinSlow 32s linear infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@keyframes spinSlow {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.breathe {
+  animation: breathe 4.5s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+
+.draw {
+  stroke-dasharray: 1;
+  animation: drawIn 1s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+@keyframes drawIn {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.fade-late {
+  animation: fadeUp 0.55s cubic-bezier(0.2, 0.8, 0.3, 1) 0.55s both;
+}
+
+.modal-pop {
+  animation: modalPop 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.15) both;
+}
+@keyframes modalPop {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 .glow-a {
   animation: glowDrift 16s ease-in-out infinite alternate;
 }
