@@ -1,6 +1,6 @@
 # DiagramAI
 
-**AI-powered mind maps & graph canvas.** Describe a diagram in plain language and Claude draws it — or build it yourself on a fast, keyboard-friendly SVG canvas. Everything lives in your browser: no accounts, no server, no tracking.
+**AI-powered mind maps, graph canvas, and a live visual logic editor.** Describe a diagram in plain language and Claude draws it, build it yourself on a fast, keyboard-friendly SVG canvas — or switch to **Logic mode** and wire up a real, running circuit of boolean/number/text nodes that evaluates client-side as you edit. Everything lives in your browser: no accounts, no server, no tracking.
 
 The in-app product name is **Driftboard**.
 
@@ -13,6 +13,15 @@ The in-app product name is **Driftboard**.
 - **Templates** — 11 starter boards (mind map, org chart, flowchart, fishbone, SWOT, …) with live previews.
 - **Import / export** — SVG, PNG, and JSON out; JSON back in with full validation.
 - **Local-first** — autosaves to `localStorage`, 60-step undo/redo, minimap navigation.
+
+## Logic mode
+
+Switch the **Mind Map / Logic** toggle in the top bar to open a separate, independently-saved canvas: a node-based visual programming editor (think Node-RED or Blueprints) that actually computes.
+
+- **Node palette** — boolean constants and gates (AND/OR/XOR/NAND/NOR/NOT), numeric comparison, arithmetic, If/else, and live-value display probes, each with typed input/output ports.
+- **Wire by dragging** from an output dot to an input dot; mismatched datatypes or an already-wired input are rejected with a clear reason.
+- **Live evaluation** — every port shows its current value, recomputed instantly on any edit. A cycle is detected and flagged on the affected node cards instead of hanging the page.
+- Its own undo/redo history and autosave key, so it never interacts with your mind-map boards.
 
 ## AI setup (bring your own key)
 
@@ -67,11 +76,14 @@ npm run preview    # serve the production build
 ```
 src/
   App.tsx           app state, semantic actions, keyboard shortcuts
-  useDiagram.ts     undo/redo history store
+  useHistory.ts     generic undo/redo history store
+  useDiagram.ts     mind-map history store (thin wrapper over useHistory)
+  useCanvasViewport.ts  shared pan/zoom, used by both canvases
   geometry.ts       bezier edges, bounds, radial layout, SVG export
   layouts.ts        tree & grid layouts
   templates.ts      starter boards
   ai/               Claude API client, Zod schema, prompts, settings
   lib/              JSON import validation, PNG rasterizer
-  components/       canvas, top bar, inspector, panels, modals
+  logic/            visual logic editor: types, node registry, evaluator, geometry
+  components/       canvases, top bar, inspectors, palettes, modals
 ```
