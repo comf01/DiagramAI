@@ -49,7 +49,7 @@ export function Inspector(props: InspectorProps) {
   })).filter((x) => x.count > 0);
 
   return (
-    <aside className="flex w-[264px] shrink-0 flex-col border-l border-ink-800 bg-ink-900">
+    <aside className="side-panel inspector-panel flex w-[278px] shrink-0 flex-col border-l border-ink-800 bg-ink-900">
       <div className="border-b border-ink-800 px-4 py-3">
         <h2 className="font-display text-[14px] font-bold tracking-tight text-ink-100">
           Inspector

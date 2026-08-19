@@ -411,7 +411,7 @@ export default function App() {
   /* ---------- layout ---------- */
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-ink-900 text-ink-100">
+    <div className="app-shell flex h-full flex-col overflow-hidden bg-ink-900 text-ink-100">
       <TopBar
         title={diagram.title}
         onTitleCommit={commitTitle}
@@ -430,9 +430,9 @@ export default function App() {
         libraryOpen={libraryOpen}
         onToggleLibrary={() => setLibraryOpen((v) => !v)}
       />
-      <div className="flex min-h-0 flex-1">
+      <div className="workspace-shell flex min-h-0 flex-1">
         {libraryOpen && <TemplatePanel onLoad={loadTemplate} onClose={() => setLibraryOpen(false)} />}
-        <main className="min-w-0 flex-1">
+        <main className="canvas-stage min-w-0 flex-1">
           <CanvasBoard
             diagram={diagram}
             selection={selection}

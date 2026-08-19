@@ -342,7 +342,7 @@ export function CanvasBoard(props: CanvasBoardProps) {
   return (
     <div
       ref={wrapRef}
-      className={`relative h-full w-full overflow-hidden bg-[#0a0e17] ${smooth ? "grid-anim" : ""}`}
+      className={`board-surface relative h-full w-full overflow-hidden bg-[#0a0e17] ${smooth ? "grid-anim" : ""}`}
       onContextMenu={(e) => e.preventDefault()}
       style={{
         backgroundImage:

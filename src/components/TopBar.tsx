@@ -62,7 +62,7 @@ export function TopBar(props: TopBarProps) {
   useEffect(() => setDraft(props.title), [props.title]);
 
   return (
-    <header className="relative z-30 flex h-14 shrink-0 items-center gap-3 border-b border-ink-800 bg-ink-900/95 px-3">
+    <header className="topbar relative z-30 flex h-16 shrink-0 items-center gap-3 border-b border-ink-800 bg-ink-900/95 px-4">
       <button
         onClick={props.onToggleLibrary}
         title={props.libraryOpen ? "Hide library" : "Show library"}
@@ -75,14 +75,14 @@ export function TopBar(props: TopBarProps) {
         <IconPanel size={17} />
       </button>
 
-      <div className="flex items-center gap-2.5">
+      <div className="brand-lockup flex items-center gap-2.5">
         <LogoMark size={27} />
         <div className="leading-none">
-          <div className="font-display text-[15px] font-bold tracking-tight text-ink-100">
+          <div className="font-display text-[16px] font-bold tracking-[-0.03em] text-ink-100">
             Driftboard
           </div>
-          <div className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.18em] text-ink-400">
-            diverse canvas
+          <div className="mt-0.5 font-mono text-[8.5px] uppercase tracking-[0.24em] text-ink-400">
+            visual field notes
           </div>
         </div>
       </div>
