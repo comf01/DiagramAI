@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ColorKey, Diagram, Selection, ToastKind, ToastMsg, Tool } from "./types";
 import { useDiagram, uid } from "./useDiagram";
+import { useHistory } from "./useHistory";
 import { makeTemplate } from "./templates";
 import { radialTidy, buildSvgExport, boundsOf } from "./geometry";
 import { LAYOUT_FNS, type LayoutKind } from "./layouts";
@@ -13,12 +14,20 @@ import { TopBar } from "./components/TopBar";
 import { TemplatePanel } from "./components/TemplatePanel";
 import { Inspector } from "./components/Inspector";
 import { CanvasBoard, type BoardApi } from "./components/CanvasBoard";
+import { LogicBoard } from "./components/LogicBoard";
+import { LogicInspector } from "./components/LogicInspector";
+import { LogicPalette } from "./components/LogicPalette";
+import { evaluate } from "./logic/evaluate";
+import { NODE_TYPES } from "./logic/nodeTypes";
+import type { LogicGraph, LogicSelection, PortRef } from "./logic/types";
 import { Toasts } from "./components/Toasts";
 import { BootVeil } from "./components/BootVeil";
 import { ContractModal, type ContractRecord } from "./components/ContractModal";
 
 const STORAGE_KEY = "driftboard.v1";
+const LOGIC_STORAGE_KEY = "driftboard.logic.v1";
 const CONTRACT_KEY = "driftboard.contract.v1";
+type Mode = "mindmap" | "logic";
 
 function loadContract(): ContractRecord | null {
   try {
@@ -48,12 +57,34 @@ function loadInitial(): Diagram {
   return makeTemplate("mindmap")!;
 }
 
+function loadInitialLogic(): LogicGraph {
+  try {
+    const raw = localStorage.getItem(LOGIC_STORAGE_KEY);
+    if (raw) {
+      const g = JSON.parse(raw) as LogicGraph;
+      if (g && Array.isArray(g.nodes) && Array.isArray(g.wires) && typeof g.title === "string") {
+        return g;
+      }
+    }
+  } catch {
+    /* corrupted storage — fall through to empty graph */
+  }
+  return { title: "Logic graph", nodes: [], wires: [] };
+}
+
 let toastSeq = 0;
 
 export default function App() {
   const store = useDiagram(loadInitial());
   const { diagram, selection } = store;
 
+  const logicStore = useHistory<LogicGraph, NonNullable<LogicSelection>>(loadInitialLogic());
+  const logicGraph = logicStore.state;
+  const logicSelection = logicStore.selection;
+  const evalResult = useMemo(() => evaluate(logicGraph), [logicGraph]);
+  const logicFitRef = useRef<BoardApi | null>(null);
+
+  const [mode, setMode] = useState<Mode>("mindmap");
   const [tool, setTool] = useState<Tool>("select");
   const [libraryOpen, setLibraryOpen] = useState(true);
   const [aiOpen, setAiOpen] = useState(false);
@@ -126,6 +157,102 @@ export default function App() {
     }, 650);
     return () => window.clearTimeout(t);
   }, [diagram]);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      try {
+        localStorage.setItem(LOGIC_STORAGE_KEY, JSON.stringify(logicGraph));
+      } catch {
+        /* storage full — ignore */
+      }
+    }, 650);
+    return () => window.clearTimeout(t);
+  }, [logicGraph]);
+
+  /* ---------- logic graph actions ---------- */
+
+  const addLogicNode = (typeKey: string) => {
+    const id = uid("ln");
+    const count = logicGraph.nodes.length;
+    const x = 40 + (count % 6) * 44;
+    const y = 40 + (count % 6) * 44;
+    logicStore.commit({ ...logicGraph, nodes: [...logicGraph.nodes, { id, typeKey, x, y, params: {} }] });
+    logicStore.setSelection({ kind: "node", id });
+    toast(`Added ${NODE_TYPES[typeKey]?.label ?? typeKey}`, "ok");
+  };
+
+  const moveLogicNode = (id: string, x: number, y: number) => {
+    logicStore.update({
+      ...logicGraph,
+      nodes: logicGraph.nodes.map((n) => (n.id === id ? { ...n, x, y } : n)),
+    });
+  };
+
+  const addWire = (from: PortRef, to: PortRef): boolean => {
+    if (from.nodeId === to.nodeId) {
+      toast("Can't connect a node to itself", "warn");
+      return false;
+    }
+    const fromNode = logicGraph.nodes.find((n) => n.id === from.nodeId);
+    const toNode = logicGraph.nodes.find((n) => n.id === to.nodeId);
+    const fromDef = fromNode && NODE_TYPES[fromNode.typeKey];
+    const toDef = toNode && NODE_TYPES[toNode.typeKey];
+    if (!fromDef || !toDef) return false;
+    const fromSpec = fromDef.outputs.find((p) => p.id === from.portId);
+    const toSpec = toDef.inputs.find((p) => p.id === to.portId);
+    if (!fromSpec || !toSpec) return false;
+    if (fromSpec.dataType !== toSpec.dataType) {
+      toast(`Type mismatch: ${fromSpec.dataType} → ${toSpec.dataType}`, "warn");
+      return false;
+    }
+    const occupied = logicGraph.wires.some((w) => w.to.nodeId === to.nodeId && w.to.portId === to.portId);
+    if (occupied) {
+      toast("That input already has a wire", "warn");
+      return false;
+    }
+    const id = uid("lw");
+    logicStore.commit({ ...logicGraph, wires: [...logicGraph.wires, { id, from, to }] });
+    logicStore.setSelection({ kind: "wire", id });
+    toast("Wired", "ok");
+    return true;
+  };
+
+  const patchLogicNodeParams = (nodeId: string, patch: Record<string, boolean | number | string>) => {
+    logicStore.commit({
+      ...logicGraph,
+      nodes: logicGraph.nodes.map((n) => (n.id === nodeId ? { ...n, params: { ...n.params, ...patch } } : n)),
+    });
+  };
+
+  const duplicateLogicNode = (id: string) => {
+    const src = logicGraph.nodes.find((n) => n.id === id);
+    if (!src) return;
+    const nid = uid("ln");
+    logicStore.commit({
+      ...logicGraph,
+      nodes: [...logicGraph.nodes, { ...src, id: nid, x: src.x + 30, y: src.y + 30 }],
+    });
+    logicStore.setSelection({ kind: "node", id: nid });
+    toast("Node duplicated", "ok");
+  };
+
+  const deleteLogicSelected = () => {
+    if (!logicSelection) return;
+    if (logicSelection.kind === "node") {
+      logicStore.commit({
+        ...logicGraph,
+        nodes: logicGraph.nodes.filter((n) => n.id !== logicSelection.id),
+        wires: logicGraph.wires.filter(
+          (w) => w.from.nodeId !== logicSelection.id && w.to.nodeId !== logicSelection.id,
+        ),
+      });
+      toast("Node deleted", "info");
+    } else {
+      logicStore.commit({ ...logicGraph, wires: logicGraph.wires.filter((w) => w.id !== logicSelection.id) });
+      toast("Wire deleted", "info");
+    }
+    logicStore.setSelection(null);
+  };
 
   /* ---------- semantic actions ---------- */
 
@@ -351,8 +478,34 @@ export default function App() {
 
   /* ---------- keyboard shortcuts ---------- */
 
-  const handlersRef = useRef({ store, selection, duplicateNode, deleteSelected, tool, contractOpen, aiOpen });
-  handlersRef.current = { store, selection, duplicateNode, deleteSelected, tool, contractOpen, aiOpen };
+  const handlersRef = useRef({
+    mode,
+    store,
+    selection,
+    duplicateNode,
+    deleteSelected,
+    logicStore,
+    logicSelection,
+    duplicateLogicNode,
+    deleteLogicSelected,
+    tool,
+    contractOpen,
+    aiOpen,
+  });
+  handlersRef.current = {
+    mode,
+    store,
+    selection,
+    duplicateNode,
+    deleteSelected,
+    logicStore,
+    logicSelection,
+    duplicateLogicNode,
+    deleteLogicSelected,
+    tool,
+    contractOpen,
+    aiOpen,
+  };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -361,26 +514,43 @@ export default function App() {
       const typing = el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable;
       const h = handlersRef.current;
       const mod = e.metaKey || e.ctrlKey;
+      const isLogic = h.mode === "logic";
+      const activeStore = isLogic ? h.logicStore : h.store;
+      const activeSelection = isLogic ? h.logicSelection : h.selection;
 
       if (mod && e.key.toLowerCase() === "z") {
         e.preventDefault();
-        if (e.shiftKey) h.store.redo();
-        else h.store.undo();
+        if (e.shiftKey) activeStore.redo();
+        else activeStore.undo();
         return;
       }
       if (mod && e.key.toLowerCase() === "y") {
         e.preventDefault();
-        h.store.redo();
+        activeStore.redo();
         return;
       }
       if (mod && e.key.toLowerCase() === "d") {
-        if (h.selection?.kind === "node") {
+        if (activeSelection?.kind === "node") {
           e.preventDefault();
-          duplicateNode(h.selection.id);
+          if (isLogic) h.duplicateLogicNode(activeSelection.id);
+          else h.duplicateNode(activeSelection.id);
         }
         return;
       }
       if (typing) return;
+
+      if (e.key.toLowerCase() === "delete" || e.key.toLowerCase() === "backspace") {
+        e.preventDefault();
+        if (isLogic) h.deleteLogicSelected();
+        else h.deleteSelected();
+        return;
+      }
+      if (e.key === "Escape") {
+        activeStore.setSelection(null);
+        return;
+      }
+
+      if (isLogic) return; // remaining shortcuts (tools/AI/search) are mind-map only
 
       switch (e.key.toLowerCase()) {
         case "v": setTool("select"); break;
@@ -392,21 +562,13 @@ export default function App() {
           e.preventDefault();
           document.getElementById("board-search")?.focus();
           break;
-        case "delete":
-        case "backspace":
-          e.preventDefault();
-          deleteSelected();
-          break;
-        case "escape":
-          h.store.setSelection(null);
-          break;
         default:
           break;
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [duplicateNode, deleteSelected]);
+  }, [duplicateNode, deleteSelected, duplicateLogicNode, deleteLogicSelected]);
 
   /* ---------- layout ---------- */
 
@@ -415,10 +577,10 @@ export default function App() {
       <TopBar
         title={diagram.title}
         onTitleCommit={commitTitle}
-        canUndo={store.canUndo}
-        canRedo={store.canRedo}
-        onUndo={store.undo}
-        onRedo={store.redo}
+        canUndo={mode === "logic" ? logicStore.canUndo : store.canUndo}
+        canRedo={mode === "logic" ? logicStore.canRedo : store.canRedo}
+        onUndo={mode === "logic" ? logicStore.undo : store.undo}
+        onRedo={mode === "logic" ? logicStore.redo : store.redo}
         onTidy={tidyBoard}
         onExport={exportDiagram}
         onImport={() => importInputRef.current?.click()}
@@ -429,37 +591,68 @@ export default function App() {
         saveState={saveState}
         libraryOpen={libraryOpen}
         onToggleLibrary={() => setLibraryOpen((v) => !v)}
+        mode={mode}
+        onModeChange={setMode}
       />
       <div className="flex min-h-0 flex-1">
-        {libraryOpen && <TemplatePanel onLoad={loadTemplate} onClose={() => setLibraryOpen(false)} />}
-        <main className="min-w-0 flex-1">
-          <CanvasBoard
-            diagram={diagram}
-            selection={selection}
-            tool={tool}
-            flashKey={flashKey}
-            fitRef={fitRef}
-            onToolChange={setTool}
-            onSelect={store.setSelection}
-            onAddNode={addNode}
-            onNodeDragStart={store.pushHistory}
-            onNodeMove={moveNode}
-            onAddEdge={addEdge}
-            onEditNode={editNodeLabel}
-            matchIds={matchIds}
-            contract={contract}
-            onOpenContract={() => setContractOpen(true)}
-          />
-        </main>
-        <Inspector
-          diagram={diagram}
-          selection={selection}
-          onPatchNode={patchNode}
-          onPatchEdge={patchEdge}
-          onReverseEdge={reverseEdge}
-          onDeleteSelected={deleteSelected}
-          onDuplicateNode={duplicateNode}
-        />
+        {mode === "mindmap" ? (
+          <>
+            {libraryOpen && <TemplatePanel onLoad={loadTemplate} onClose={() => setLibraryOpen(false)} />}
+            <main className="min-w-0 flex-1">
+              <CanvasBoard
+                diagram={diagram}
+                selection={selection}
+                tool={tool}
+                flashKey={flashKey}
+                fitRef={fitRef}
+                onToolChange={setTool}
+                onSelect={store.setSelection}
+                onAddNode={addNode}
+                onNodeDragStart={store.pushHistory}
+                onNodeMove={moveNode}
+                onAddEdge={addEdge}
+                onEditNode={editNodeLabel}
+                matchIds={matchIds}
+                contract={contract}
+                onOpenContract={() => setContractOpen(true)}
+              />
+            </main>
+            <Inspector
+              diagram={diagram}
+              selection={selection}
+              onPatchNode={patchNode}
+              onPatchEdge={patchEdge}
+              onReverseEdge={reverseEdge}
+              onDeleteSelected={deleteSelected}
+              onDuplicateNode={duplicateNode}
+            />
+          </>
+        ) : (
+          <>
+            {libraryOpen && <LogicPalette onAdd={addLogicNode} onClose={() => setLibraryOpen(false)} />}
+            <main className="min-w-0 flex-1">
+              <LogicBoard
+                graph={logicGraph}
+                selection={logicSelection}
+                evalResult={evalResult}
+                flashKey={flashKey}
+                fitRef={logicFitRef}
+                onSelect={logicStore.setSelection}
+                onAddWire={addWire}
+                onNodeDragStart={logicStore.pushHistory}
+                onNodeMove={moveLogicNode}
+              />
+            </main>
+            <LogicInspector
+              graph={logicGraph}
+              selection={logicSelection}
+              evalResult={evalResult}
+              onPatchParams={patchLogicNodeParams}
+              onDeleteSelected={deleteLogicSelected}
+              onDuplicateNode={duplicateLogicNode}
+            />
+          </>
+        )}
       </div>
       <input
         ref={importInputRef}

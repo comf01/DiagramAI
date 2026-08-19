@@ -1,7 +1,7 @@
 import { z } from "zod/v4";
 import { radialTidy } from "../geometry";
 import type { Diagram } from "../types";
-import { uid } from "../useDiagram";
+import { uid } from "../uid";
 
 export const MAX_AI_NODES = 40;
 const MAX_LABEL_CHARS = 32;
