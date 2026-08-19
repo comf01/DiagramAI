@@ -58,7 +58,7 @@ function TemplateCard({
     <button
       onClick={() => onLoad(t.key)}
       style={{ animationDelay: `${index * 35}ms` }}
-      className="fade-up group flex w-full items-center gap-3 rounded-xl border border-ink-700/70 bg-ink-850 p-2.5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/50 hover:bg-ink-800 hover:shadow-lg hover:shadow-black/30 active:translate-y-0 active:scale-[0.99]"
+      className="template-card fade-up group flex w-full items-center gap-3 rounded-xl border border-ink-700/70 bg-ink-850 p-2.5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/50 hover:bg-ink-800 hover:shadow-lg hover:shadow-black/30 active:translate-y-0 active:scale-[0.99]"
     >
       <div className="h-14 w-20 shrink-0 overflow-hidden rounded-lg border border-ink-700/60 bg-ink-950 transition-colors duration-200 group-hover:border-ink-600">
         <MiniPreview diagram={preview} />
@@ -92,7 +92,7 @@ export function TemplatePanel({ onLoad, onClose }: TemplatePanelProps) {
   }), []);
 
   return (
-    <aside className="flex w-[280px] shrink-0 flex-col border-r border-ink-800 bg-ink-900">
+    <aside className="side-panel library-panel flex w-[292px] shrink-0 flex-col border-r border-ink-800 bg-ink-900">
       <div className="flex items-center justify-between border-b border-ink-800 px-4 py-3">
         <div>
           <h2 className="font-display text-[14px] font-bold tracking-tight text-ink-100">
