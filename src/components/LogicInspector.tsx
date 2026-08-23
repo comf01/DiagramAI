@@ -45,7 +45,7 @@ export function LogicInspector(props: LogicInspectorProps) {
   const errored = node ? evalResult.nodeErrors.has(node.id) : false;
 
   return (
-    <aside className="flex w-[264px] shrink-0 flex-col border-l border-ink-800 bg-ink-900">
+    <aside className="inspector-panel flex w-[264px] shrink-0 flex-col border-l border-ink-800 bg-ink-900">
       <div className="border-b border-ink-800 px-4 py-3">
         <h2 className="font-display text-[14px] font-bold tracking-tight text-ink-100">Inspector</h2>
         <p className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.16em] text-ink-400">

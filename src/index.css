@@ -68,6 +68,17 @@ button:focus {
   outline: none;
 }
 
+/* Restore a visible ring for keyboard users only — the rule above intentionally
+   drops it for mouse focus, which would otherwise leave the board unusable
+   without a pointer. Must stay after that rule to win the cascade. */
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-accent) 72%, white);
+  outline-offset: 2px;
+}
+
 .kbd {
   font-family: var(--font-mono);
   font-size: 10px;
@@ -277,5 +288,46 @@ button:focus {
   }
   to {
     transform: translate3d(3%, 2.5%, 0) scale(1.08);
+  }
+}
+
+/* ---------- responsive panels ---------- */
+
+/* The three-column layout squeezes the canvas on smaller screens. Narrow the
+   side panels rather than hiding them: the library is toggled by React state,
+   so a display:none here would make its top-bar toggle appear to do nothing. */
+/* max-width, not width: these clamp panels that are wider than the cap and
+   leave narrower ones (the logic palette is 248px) untouched, so shrinking the
+   viewport can never make a panel grow. */
+@media (max-width: 1100px) {
+  .library-panel {
+    max-width: 252px;
+  }
+
+  .inspector-panel {
+    max-width: 248px;
+  }
+}
+
+@media (max-width: 860px) {
+  .library-panel {
+    max-width: 216px;
+  }
+
+  .inspector-panel {
+    max-width: 212px;
+  }
+}
+
+/* ---------- motion preferences ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
