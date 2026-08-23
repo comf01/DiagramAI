@@ -10,7 +10,7 @@ interface LogicPaletteProps {
 
 export function LogicPalette({ onAdd, onClose }: LogicPaletteProps) {
   return (
-    <aside className="flex w-[248px] shrink-0 flex-col border-r border-ink-800 bg-ink-900">
+    <aside className="library-panel flex w-[248px] shrink-0 flex-col border-r border-ink-800 bg-ink-900">
       <div className="flex items-center justify-between border-b border-ink-800 px-4 py-3">
         <div>
           <h2 className="font-display text-[14px] font-bold tracking-tight text-ink-100">Nodes</h2>
